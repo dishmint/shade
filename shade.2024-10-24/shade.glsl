@@ -4,9 +4,8 @@
 
 #iChannel0 "https://picsum.photos/seed/picsum/4096.jpg"
 
-#define texSize 4096.0
-#define cells 10.0
-#define cellwidth texSize/cells
+#define cells 25.0
+#define cellsize 1.0/cells
 
 #define D3 0.33
 #define D4 0.25
@@ -35,40 +34,59 @@ vec2 orbit(vec2 p, float r, float a){
 	return p + (r * vec2(cos(a), sin(a)));
 }
 
+struct space {
+	vec2 dims;
+};
+space grid = space(vec2(cells));
+
+vec2 get_index(space g, vec2 pos) {
+	// [1] — Get current bin
+	vec2 currentbin = g.dims * pos;
+	// [^] Multiply the number of rows and columns by the normalized (0~1) position
+
+	// [2] — Smudge currentbin
+	// vec2 ipart;
+	// modf(currentbin, ipart);
+	// vec2 center = ipart/cells;
+	// [^] Border artifacts
+
+	// vec2 center = ceil(currentbin)/cells;
+	// [^] Top row artifact
+	// vec2 center = floor(currentbin)/cells;
+	// [^] Bottom row and Left column artifact
+	// vec2 center = vec2(round(currentbin.x), floor(currentbin.y - cellsize))/cells;
+	// vec2 center = fract(currentbin/cells);
+
+	// vec2 center = round(currentbin)/cells; // Border artifacts (minimal)
+	// vec2 center = (currentbin * abs(vec2(cos(iTime), sin(iTime))))/cells; // Border artifacts (minimal)
+	vec2 center = round(currentbin)/cells; // Border artifacts (minimal)
+
+	return center;
+}
+
 void main(){
 	float time=iGlobalTime*1.;
 	vec2 uv=(gl_FragCoord.xy/iResolution.xy);
 
-	vec4 color = vec4(vec3(0.0), 1.0);
+	vec2 bin = get_index(grid, uv);
 
-	vec2 split = fract(uv * 10.0);
+	// vec4 color = texture2D(iChannel0, bin);
 
-	bool xmark = (split.x > 0.49 && split.x < 0.51);
-	bool ymark = (split.y > 0.49 && split.y < 0.51);
-
-	if(!xmark && !ymark) {
-		color = texture2D(iChannel0, uv);
-	}
-
-	// [1] — position of center of kernel
-	// [2] — set current pixel color to center pixel color
+	// vec2 s = step(bin*abs(sin(iTime)), uv);
+	// vec2 s = step((0.5*(vec2(cos(iTime),sin(iTime)))), uv);
+	vec2 s = step(uv, bin) - step(bin, uv) ;
+	float sx = s.x * s.y;
 	
+	// vec4 color = texture2D(iChannel0, sin((bin * sx) + iTime));
+	// vec4 color = texture2D(iChannel0, uv + 0.0625*vec2(cos(sx+iTime),sin(sx+iTime)));
+	// vec4 color = texture2D(iChannel0, clamp(uv + 0.0625*vec2(cos(sx+iTime),sin(sx+iTime)), 0.0, 1.0));
+	// vec4 color = texture2D(iChannel0, abs(uv + 0.003*vec2(cos(sx+iTime),sin(sx+iTime))));
+	// vec4 color = texture2D(iChannel0, clamp(uv + sin((bin * sx) + iTime), 0.0, 1.0));
+	// gl_FragColor = vec4(vec3(sx),1.0);
+
+	vec2 sm = smoothstep(uv, uv, bin) - smoothstep(bin, bin, uv) ;
+	float smx = sm.x * sm.y;
+	vec4 color = texture2D(iChannel0, abs(uv + 0.005*vec2(cos(smx+iTime),sin(smx+iTime))));
+
 	gl_FragColor = color;
-	// vec4 tex0 = texture2D(iChannel0,uv);
-	// vec4 tex0 = texture2D(iChannel0,fract(uv * 2.0));
-
-	// float angle = vec4mean(tex0) * TAU;
-
-	// vec2 xy = orbit(uv, 1.0, angle);
-	// vec2 xy = orbit(uv, 1.0, angle+(iTime * 0.1));
-	
-	// gl_FragColor = texture2D(iChannel0, xy);
-	// gl_FragColor = texture2D(iChannel0, uv-xy);
-	// gl_FragColor = texture2D(iChannel0, uv+xy);
-	// gl_FragColor = texture2D(iChannel0, uv*xy);
-	// gl_FragColor = texture2D(iChannel0, uv/xy);
-	
-	// vec4 tex1 = texture2D(iChannel0, uv-xy);
-	// float mu = vec4mean(tex1);
-	// gl_FragColor = tex0-vec4(mu);
 }
